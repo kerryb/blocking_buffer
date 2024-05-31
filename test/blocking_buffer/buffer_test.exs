@@ -1,6 +1,7 @@
 defmodule BlockingBuffer.BufferTest do
-  alias BlockingBuffer.Buffer
   use ExUnit.Case, async: true
+
+  alias BlockingBuffer.Buffer
 
   describe "BlockingBuffer.Buffer" do
     setup do
