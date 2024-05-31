@@ -14,5 +14,18 @@ defmodule BlockingBuffer.BufferTest do
       assert Buffer.pop(buffer) == :foo
       assert Buffer.pop(buffer) == :bar
     end
+
+    test "blocks reads when empty", %{buffer: buffer} do
+      pid = self()
+
+      Task.async(fn ->
+        item = Buffer.pop(buffer)
+        send(pid, {:popped, item})
+      end)
+
+      refute_receive {:popped, _}
+      Buffer.push(buffer, :foo)
+      assert_receive {:popped, :foo}
+    end
   end
 end

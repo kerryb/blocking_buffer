@@ -4,18 +4,26 @@ defmodule BlockingBuffer.Buffer do
 
   def start_link(arg), do: Task.start_link(__MODULE__, :run, [arg])
 
-  def run(_arg), do: wait(:queue.new())
+  def run(_arg), do: wait(:empty, :queue.new())
 
-  defp wait(queue) do
+  defp wait(:empty, queue) do
     receive do
       {:push, item, from} ->
         send(from, :noreply)
-        wait(:queue.in(item, queue))
+        wait(:normal, :queue.in(item, queue))
+    end
+  end
+
+  defp wait(:normal, queue) do
+    receive do
+      {:push, item, from} ->
+        send(from, :noreply)
+        wait(:normal, :queue.in(item, queue))
 
       {:pop, from} ->
         {{:value, item}, queue} = :queue.out(queue)
         send(from, {:reply, item})
-        wait(queue)
+        wait(:normal, queue)
     end
   end
 
