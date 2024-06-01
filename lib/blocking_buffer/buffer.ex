@@ -2,7 +2,31 @@ defmodule BlockingBuffer.Buffer do
   @moduledoc false
   use Task
 
+  #
+  # Client
+  #
+
   def start_link(arg), do: Task.start_link(__MODULE__, :run, [arg])
+
+  def push(buffer, item) do
+    send(buffer, {:push, item, self()})
+
+    receive do
+      :noreply -> :ok
+    end
+  end
+
+  def pop(buffer) do
+    send(buffer, {:pop, self()})
+
+    receive do
+      {:reply, item} -> item
+    end
+  end
+
+  #
+  # Server
+  #
 
   def run(_arg), do: wait(:empty, :queue.new())
 
@@ -24,22 +48,6 @@ defmodule BlockingBuffer.Buffer do
         {{:value, item}, queue} = :queue.out(queue)
         send(from, {:reply, item})
         wait(:normal, queue)
-    end
-  end
-
-  def push(buffer, item) do
-    send(buffer, {:push, item, self()})
-
-    receive do
-      :noreply -> :ok
-    end
-  end
-
-  def pop(buffer) do
-    send(buffer, {:pop, self()})
-
-    receive do
-      {:reply, item} -> item
     end
   end
 end
