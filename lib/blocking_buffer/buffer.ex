@@ -63,6 +63,11 @@ defmodule BlockingBuffer.Buffer do
   defp handle_pop(state, from) do
     {{:value, item}, queue} = :queue.out(state.queue)
     send(from, {:reply, item})
-    wait(:normal, %{state | queue: queue})
+
+    if :queue.is_empty(queue) do
+      wait(:empty, %{state | queue: queue})
+    else
+      wait(:normal, %{state | queue: queue})
+    end
   end
 end

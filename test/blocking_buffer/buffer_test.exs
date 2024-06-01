@@ -15,7 +15,7 @@ defmodule BlockingBuffer.BufferTest do
       assert Buffer.pop(buffer) == :bar
     end
 
-    test "blocks reads when empty", %{buffer: buffer} do
+    test "blocks reads until the first item is pushed", %{buffer: buffer} do
       pid = self()
 
       task =
@@ -27,6 +27,24 @@ defmodule BlockingBuffer.BufferTest do
       refute_receive {:popped, _}
       Buffer.push(buffer, :foo)
       assert_receive {:popped, :foo}
+      Task.await(task)
+    end
+
+    test "blocks reads after the last item is popped, until another is pushed", %{buffer: buffer} do
+      Buffer.push(buffer, :foo)
+      Buffer.pop(buffer)
+
+      pid = self()
+
+      task =
+        Task.async(fn ->
+          item = Buffer.pop(buffer)
+          send(pid, {:popped, item})
+        end)
+
+      refute_receive {:popped, _}
+      Buffer.push(buffer, :bar)
+      assert_receive {:popped, :bar}
       Task.await(task)
     end
 
