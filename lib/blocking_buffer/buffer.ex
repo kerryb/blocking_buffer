@@ -32,22 +32,25 @@ defmodule BlockingBuffer.Buffer do
 
   defp wait(:empty, queue) do
     receive do
-      {:push, item, from} ->
-        send(from, :noreply)
-        wait(:normal, :queue.in(item, queue))
+      {:push, item, from} -> handle_push(queue, item, from)
     end
   end
 
   defp wait(:normal, queue) do
     receive do
-      {:push, item, from} ->
-        send(from, :noreply)
-        wait(:normal, :queue.in(item, queue))
-
-      {:pop, from} ->
-        {{:value, item}, queue} = :queue.out(queue)
-        send(from, {:reply, item})
-        wait(:normal, queue)
+      {:push, item, from} -> handle_push(queue, item, from)
+      {:pop, from} -> handle_pop(queue, from)
     end
+  end
+
+  defp handle_push(queue, item, from) do
+    send(from, :noreply)
+    wait(:normal, :queue.in(item, queue))
+  end
+
+  defp handle_pop(queue, from) do
+    {{:value, item}, queue} = :queue.out(queue)
+    send(from, {:reply, item})
+    wait(:normal, queue)
   end
 end
