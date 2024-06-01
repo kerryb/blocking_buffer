@@ -6,7 +6,7 @@ defmodule BlockingBuffer.Buffer do
   # Client
   #
 
-  def start_link(arg), do: Task.start_link(__MODULE__, :run, [arg])
+  def start_link(size), do: Task.start_link(__MODULE__, :run, [size])
 
   def push(buffer, item) do
     send(buffer, {:push, item, self()})
@@ -28,29 +28,41 @@ defmodule BlockingBuffer.Buffer do
   # Server
   #
 
-  def run(_arg), do: wait(:empty, :queue.new())
+  def run(size), do: wait(:empty, %{queue: :queue.new(), size: size})
 
-  defp wait(:empty, queue) do
+  defp wait(:empty, state) do
     receive do
-      {:push, item, from} -> handle_push(queue, item, from)
+      {:push, item, from} -> handle_push(state, item, from)
     end
   end
 
-  defp wait(:normal, queue) do
+  defp wait(:normal, state) do
     receive do
-      {:push, item, from} -> handle_push(queue, item, from)
-      {:pop, from} -> handle_pop(queue, from)
+      {:push, item, from} -> handle_push(state, item, from)
+      {:pop, from} -> handle_pop(state, from)
     end
   end
 
-  defp handle_push(queue, item, from) do
+  defp wait(:full, state) do
+    receive do
+      {:pop, from} -> handle_pop(state, from)
+    end
+  end
+
+  defp handle_push(state, item, from) do
+    queue = :queue.in(item, state.queue)
     send(from, :noreply)
-    wait(:normal, :queue.in(item, queue))
+
+    if :queue.len(queue) == state.size do
+      wait(:full, %{state | queue: queue})
+    else
+      wait(:normal, %{state | queue: queue})
+    end
   end
 
-  defp handle_pop(queue, from) do
-    {{:value, item}, queue} = :queue.out(queue)
+  defp handle_pop(state, from) do
+    {{:value, item}, queue} = :queue.out(state.queue)
     send(from, {:reply, item})
-    wait(:normal, queue)
+    wait(:normal, %{state | queue: queue})
   end
 end
