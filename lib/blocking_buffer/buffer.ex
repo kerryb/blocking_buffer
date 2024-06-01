@@ -28,7 +28,7 @@ defmodule BlockingBuffer.Buffer do
     send(buffer, {:get_state, self()})
 
     receive do
-      {:reply, state} -> {:ok, state}
+      {:reply, state} -> state
     end
   end
 

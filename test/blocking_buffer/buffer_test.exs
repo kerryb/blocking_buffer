@@ -70,7 +70,7 @@ defmodule BlockingBuffer.BufferTest do
     test "allows its state to be queried for debugging", %{buffer: buffer} do
       Buffer.push(buffer, :foo)
       Buffer.push(buffer, :bar)
-      assert Buffer.state(buffer) == {:ok, %{size: 3, state: :normal, queue: :queue.from_list([:foo, :bar])}}
+      assert Buffer.state(buffer) == %{size: 3, state: :normal, queue: :queue.from_list([:foo, :bar])}
     end
   end
 end
