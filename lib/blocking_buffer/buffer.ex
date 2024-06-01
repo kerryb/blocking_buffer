@@ -24,28 +24,39 @@ defmodule BlockingBuffer.Buffer do
     end
   end
 
+  def state(buffer) do
+    send(buffer, {:get_state, self()})
+
+    receive do
+      {:reply, state} -> {:ok, state}
+    end
+  end
+
   #
   # Server
   #
 
-  def run(size), do: wait(:empty, %{queue: :queue.new(), size: size})
+  def run(size), do: wait(%{state: :empty, queue: :queue.new(), size: size})
 
-  defp wait(:empty, state) do
+  defp wait(%{state: :empty} = state) do
     receive do
       {:push, item, from} -> handle_push(state, item, from)
+      {:get_state, from} -> handle_get_state(state, from)
     end
   end
 
-  defp wait(:normal, state) do
+  defp wait(%{state: :normal} = state) do
     receive do
       {:push, item, from} -> handle_push(state, item, from)
       {:pop, from} -> handle_pop(state, from)
+      {:get_state, from} -> handle_get_state(state, from)
     end
   end
 
-  defp wait(:full, state) do
+  defp wait(%{state: :full} = state) do
     receive do
       {:pop, from} -> handle_pop(state, from)
+      {:get_state, from} -> handle_get_state(state, from)
     end
   end
 
@@ -54,9 +65,9 @@ defmodule BlockingBuffer.Buffer do
     send(from, :noreply)
 
     if :queue.len(queue) == state.size do
-      wait(:full, %{state | queue: queue})
+      wait(%{state | state: :full, queue: queue})
     else
-      wait(:normal, %{state | queue: queue})
+      wait(%{state | state: :normal, queue: queue})
     end
   end
 
@@ -65,9 +76,14 @@ defmodule BlockingBuffer.Buffer do
     send(from, {:reply, item})
 
     if :queue.is_empty(queue) do
-      wait(:empty, %{state | queue: queue})
+      wait(%{state | state: :empty, queue: queue})
     else
-      wait(:normal, %{state | queue: queue})
+      wait(%{state | state: :normal, queue: queue})
     end
+  end
+
+  defp handle_get_state(state, from) do
+    send(from, {:reply, state})
+    wait(state)
   end
 end
